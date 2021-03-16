@@ -6,13 +6,15 @@ namespace ImuGpsLocalization {
 
 GpsProcessor::GpsProcessor(const Eigen::Vector3d& I_p_Gps) : I_p_Gps_(I_p_Gps) { }//[0, 0, 0]
 
-bool GpsProcessor::UpdateStateByGpsPosition(const Eigen::Vector3d& init_lla, const GpsPositionDataPtr gps_data_ptr, State* state) {
-    Eigen::Matrix<double, 3, 15> H;
+bool GpsProcessor::UpdateStateByGpsPosition(const Eigen::Vector3d& init_lla, //G系在ECEF下的位置
+                                            const GpsPositionDataPtr gps_data_ptr, //curr gps data
+                                            State* state) {//imu预测出来的状态
+    Eigen::Matrix<double, 3, 15> H; //jacobian
     Eigen::Vector3d residual;
-    ComputeJacobianAndResidual(init_lla, gps_data_ptr, *state, &H, &residual);
+    ComputeJacobianAndResidual(init_lla, gps_data_ptr, *state, &H, &residual); //gps只测量位置
     const Eigen::Matrix3d& V = gps_data_ptr->cov;
 
-    // EKF.
+    // EKF. 273式到274式
     const Eigen::MatrixXd& P = state->cov;
     const Eigen::MatrixXd K = P * H.transpose() * (H * P * H.transpose() + V).inverse();
     const Eigen::VectorXd delta_x = K * residual;
@@ -20,10 +22,11 @@ bool GpsProcessor::UpdateStateByGpsPosition(const Eigen::Vector3d& init_lla, con
     // Add delta_x to state.
     AddDeltaToState(delta_x, state);
 
-    // Covarance.
+    // Covarance. 275式的鲁棒版
     const Eigen::MatrixXd I_KH = Eigen::Matrix<double, 15, 15>::Identity() - K * H;
-    state->cov = I_KH * P * I_KH.transpose() + K * V * K.transpose(); //172式的鲁棒版
+    state->cov = I_KH * P * I_KH.transpose() + K * V * K.transpose(); 
 }
+
 
 void GpsProcessor::ComputeJacobianAndResidual(const Eigen::Vector3d& init_lla,  
                                               const GpsPositionDataPtr gps_data, 
@@ -36,7 +39,7 @@ void GpsProcessor::ComputeJacobianAndResidual(const Eigen::Vector3d& init_lla,
     // Convert wgs84 to ENU frame.
     Eigen::Vector3d G_p_Gps; 
     ConvertLLAToENU(init_lla, gps_data->lla, &G_p_Gps);
-    //用gps_t计算得到ENU_t在ENU_0(G系)下的位置position, 将来与imu_t预测的ENU_t在ENU_0下的位置就是残差,即EKF中的新息
+    //用gps_t计算得到ENU_t在ENU_0(G系)下的位置position, 将来与imu_t预测的ENU_t在ENU_0下的位置作差构成残差,即EKF中的新息
 
     // Compute residual.
     *residual = G_p_Gps - (G_p_I + G_R_I * I_p_Gps_);//I_p_Gps_ = [0, 0, 0]
@@ -46,6 +49,7 @@ void GpsProcessor::ComputeJacobianAndResidual(const Eigen::Vector3d& init_lla,
     jacobian->block<3, 3>(0, 0)  = Eigen::Matrix3d::Identity();
     jacobian->block<3, 3>(0, 6)  = - G_R_I * GetSkewMatrix(I_p_Gps_);
 }
+
 
 void AddDeltaToState(const Eigen::Matrix<double, 15, 1>& delta_x, State* state) {
     state->G_p_I     += delta_x.block<3, 1>(0, 0);

@@ -25,7 +25,7 @@ private:
     std::unique_ptr<GpsProcessor> gps_processor_;
 
     bool initialized_;
-    Eigen::Vector3d init_lla_; // The initial reference gps point.
+    Eigen::Vector3d init_lla_; // The initial reference gps point. 初始化G系时刻，gps坐标系在ECEF下的经纬高度
     State state_;
 };
 

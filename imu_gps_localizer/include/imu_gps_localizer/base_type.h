@@ -24,7 +24,7 @@ using GpsPositionDataPtr = std::shared_ptr<GpsPositionData>;
 struct State {
     double timestamp;
     
-    Eigen::Vector3d lla;       // WGS84 position.
+    Eigen::Vector3d lla;       // WGS84 position. imu预测出来的p在ECEF下的坐标
     Eigen::Vector3d G_p_I;     // The original point of the IMU frame in the Global frame.
     Eigen::Vector3d G_v_I;     // The velocity original point of the IMU frame in the Global frame.
     Eigen::Matrix3d G_R_I;     // The rotation from the IMU frame to the Global frame. Convert a vector in imu frame into G frame

@@ -37,7 +37,7 @@ LocalizationWrapper::LocalizationWrapper(ros::NodeHandle& nh) {
     imu_sub_ = nh.subscribe("/imu/data", 10,  &LocalizationWrapper::ImuCallback, this);
     gps_position_sub_ = nh.subscribe("/fix", 10,  &LocalizationWrapper::GpsPositionCallback, this);
 
-    state_pub_ = nh.advertise<nav_msgs::Path>("fused_path", 10);
+    state_pub_ = nh.advertise<nav_msgs::Path>("fused_path", 10); //每来一次imu，imu预测出来的状态
 }
 
 LocalizationWrapper::~LocalizationWrapper() {
@@ -56,8 +56,8 @@ void LocalizationWrapper::ImuCallback(const sensor_msgs::ImuConstPtr& imu_msg_pt
                           imu_msg_ptr->angular_velocity.z;
     
     ImuGpsLocalization::State fused_state;
-    const bool ok = imu_gps_localizer_ptr_->ProcessImuData(imu_data_ptr, &fused_state);
-    if (!ok) {
+    const bool ok = imu_gps_localizer_ptr_->ProcessImuData(imu_data_ptr, &fused_state); //TODO(jxl): 作者忘了使用锁
+    if (!ok) { //还未收到gps数据
         return;
     }
 
@@ -83,10 +83,12 @@ void LocalizationWrapper::GpsPositionCallback(const sensor_msgs::NavSatFixConstP
                          gps_msg_ptr->altitude;
     gps_data_ptr->cov = Eigen::Map<const Eigen::Matrix3d>(gps_msg_ptr->position_covariance.data());
 
-    imu_gps_localizer_ptr_->ProcessGpsPositionData(gps_data_ptr);
+    imu_gps_localizer_ptr_->ProcessGpsPositionData(gps_data_ptr); //同上
 
     LogGps(gps_data_ptr);
 }
+
+
 
 void LocalizationWrapper::LogState(const ImuGpsLocalization::State& state) {
     const Eigen::Quaterniond G_q_I(state.G_R_I);

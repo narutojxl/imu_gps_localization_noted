@@ -18,14 +18,16 @@ void Initializer::AddImuData(const ImuDataPtr imu_data_ptr) {
     }
 }
 
+
 bool Initializer::AddGpsPositionData(const GpsPositionDataPtr gps_data_ptr, State* state) {
     if (imu_buffer_.size() < kImuDataBufferLength) {
         LOG(WARNING) << "[AddGpsPositionData]: No enought imu data!";
         return false;
     }
 
-    //当imu buffer中积累了>=100帧数据, 且gps vel data avaiable
+    //当imu buffer中积累了>=100帧数据
     const ImuDataPtr last_imu_ptr = imu_buffer_.back();
+    
     // TODO: synchronize all sensors.
     if (std::abs(gps_data_ptr->timestamp - last_imu_ptr->timestamp) > 0.5) {
         LOG(ERROR) << "[AddGpsPositionData]: Gps and imu timestamps are not synchronized!";
@@ -59,11 +61,14 @@ bool Initializer::AddGpsPositionData(const GpsPositionDataPtr gps_data_ptr, Stat
     state->cov.setZero();
     state->cov.block<3, 3>(0, 0) = 100. * Eigen::Matrix3d::Identity(); // position std: 10 m
     state->cov.block<3, 3>(3, 3) = 100. * Eigen::Matrix3d::Identity(); // velocity std: 10 m/s
+
     // roll pitch std 10 degree.
     state->cov.block<2, 2>(6, 6) = 10. * kDegreeToRadian * 10. * kDegreeToRadian * Eigen::Matrix2d::Identity();
     state->cov(8, 8)             = 100. * kDegreeToRadian * 100. * kDegreeToRadian; // yaw std: 100 degree.
+
     // Acc bias.
     state->cov.block<3, 3>(9, 9) = 0.0004 * Eigen::Matrix3d::Identity();
+
     // Gyro bias.
     state->cov.block<3, 3>(12, 12) = 0.0004 * Eigen::Matrix3d::Identity();
 
@@ -91,10 +96,10 @@ bool Initializer::ComputeG_R_IFromImuData(Eigen::Matrix3d* G_R_I) {
 
     // imu acc model 
     // am = R^T * (G_a - G_g) + na + ba 
-    // R: convert a vector in imu frame into G frame, in other words, the rotation from the IMU frame to the Global frame.
+    // R: convert a vector from imu frame into G frame, in other words, the rotation from Global frame to IMU frame.
     // R 就是程序中的 G_R_I
     // 在初始时刻, 系统为静止状态, G_a = [0 0 0]^T;
-    // 在ENU IMU中G_g = [0 0 -g]
+    // 在ENU IMU中G_g = [0 0 -g]  作者默认在初始化阶段imu和gps处于水平静止状态, 否则G_g不会为[0, 0, -g]
 
     // Compute rotation.
     // Please refer to 

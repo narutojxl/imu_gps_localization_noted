@@ -20,7 +20,7 @@ public:
 private:
     bool ComputeG_R_IFromImuData(Eigen::Matrix3d* G_R_I);
 
-    Eigen::Vector3d init_I_p_Gps_;
+    Eigen::Vector3d init_I_p_Gps_; //没有使用
     std::deque<ImuDataPtr> imu_buffer_;
 };
 
